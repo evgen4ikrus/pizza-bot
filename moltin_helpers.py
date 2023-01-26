@@ -25,7 +25,7 @@ def get_moltin_access_token(client_id, client_secret):
     return MOLTIN_ACCESS_TOKEN
 
 
-def download_product(moltin_access_token, name, slug, description, price, sku):
+def download_product(moltin_access_token, name, description, price, en_name):
     headers = {
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
@@ -34,8 +34,8 @@ def download_product(moltin_access_token, name, slug, description, price, sku):
         'data': {
             'type': 'product',
             'name': name,
-            'slug': slug,
-            'sku': sku,
+            'slug': en_name,
+            'sku': name,
             'description': description,
             'manage_stock': False,
             'price': [
@@ -51,17 +51,19 @@ def download_product(moltin_access_token, name, slug, description, price, sku):
     }
     response = requests.post('https://api.moltin.com/v2/products', headers=headers, json=payload)
     response.raise_for_status()
+    return response.json()['data']
 
 
-def download_image(moltin_access_token):
+def download_image(moltin_access_token, image_url):
     headers = {
         'Authorization': f'Bearer {moltin_access_token}',
     }
     files = {
-        'file_location': (None, 'https://dodopizza-a.akamaihd.net/static/Img/Products/Pizza/ru-RU/714c5eb8-be9a-4101-b46f-6ec9055c9416.jpg'),
+        'file_location': (None, image_url),
     }
     response = requests.post('https://api.moltin.com/v2/files', headers=headers, files=files)
     response.raise_for_status()
+    return response.json()['data']
 
 
 def get_all_products(moltin_access_token):
@@ -69,4 +71,32 @@ def get_all_products(moltin_access_token):
         'Authorization': f'Bearer {moltin_access_token}',
     }
     response = requests.get('https://api.moltin.com/v2/products', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def delete_product(moltin_access_token, product_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.delete(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
+    response.raise_for_status()
+
+
+def create_main_image_relationship(moltin_access_token, product_id, image_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'data': {
+            'type': 'main_image',
+            'id': image_id,
+        },
+    }
+    response = requests.post(
+        f'https://api.moltin.com/v2/products/{product_id}/relationships/main-image',
+        headers=headers,
+        json=json_data,
+    )
     response.raise_for_status()
