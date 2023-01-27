@@ -51,7 +51,6 @@ def download_product(moltin_access_token, name, description, price, en_name):
     }
     response = requests.post('https://api.moltin.com/v2/products', headers=headers, json=payload)
     response.raise_for_status()
-    return response.json()['data']
 
 
 def download_image(moltin_access_token, image_url):
@@ -100,3 +99,68 @@ def create_main_image_relationship(moltin_access_token, product_id, image_id):
         json=json_data,
     )
     response.raise_for_status()
+
+
+def create_flow(moltin_access_token, flow_name, slug, description):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'data': {
+            'type': 'flow',
+            'name': flow_name,
+            'slug': slug,
+            'description': description,
+            'enabled': True,
+        },
+    }
+    response = requests.post('https://api.moltin.com/v2/flows', headers=headers, json=json_data)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def get_flow(moltin_access_token, flow_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_id}', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def create_flow_field(moltin_access_token, flow_id, name, slug, field_type, description):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'data': {
+            'type': 'field',
+            'name': name,
+            'slug': slug,
+            'field_type': field_type,
+            'description': description,
+            'required': True,
+            'enabled': True,
+            'relationships': {
+                'flow': {
+                    'data': {
+                        'type': 'flow',
+                        'id': flow_id,
+                    },
+                },
+            },
+        },
+    }
+    response = requests.post('https://api.moltin.com/v2/fields', headers=headers, json=json_data)
+    response.raise_for_status()
+
+
+def get_all_flow_fields(moltin_access_token, flow_slug):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/fields', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
