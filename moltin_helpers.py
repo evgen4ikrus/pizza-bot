@@ -25,7 +25,7 @@ def get_moltin_access_token(client_id, client_secret):
     return MOLTIN_ACCESS_TOKEN
 
 
-def download_product(moltin_access_token, name, description, price, en_name):
+def download_product(moltin_access_token, name, description, price, slug):
     headers = {
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ def download_product(moltin_access_token, name, description, price, en_name):
         'data': {
             'type': 'product',
             'name': name,
-            'slug': en_name,
+            'slug': slug,
             'sku': name,
             'description': description,
             'manage_stock': False,
@@ -51,6 +51,7 @@ def download_product(moltin_access_token, name, description, price, en_name):
     }
     response = requests.post('https://api.moltin.com/v2/products', headers=headers, json=payload)
     response.raise_for_status()
+    return response.json()['data']
 
 
 def download_image(moltin_access_token, image_url):
@@ -63,6 +64,24 @@ def download_image(moltin_access_token, image_url):
     response = requests.post('https://api.moltin.com/v2/files', headers=headers, files=files)
     response.raise_for_status()
     return response.json()['data']
+
+
+def get_all_images(moltin_access_token):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get('https://api.moltin.com/v2/files', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def delete_image(moltin_access_token, image_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+
+    response = requests.delete(f'https://api.moltin.com/v2/files/{image_id}', headers=headers)
+    response.raise_for_status()
 
 
 def get_all_products(moltin_access_token):
@@ -177,7 +196,7 @@ def create_entry(moltin_access_token: str, flow_slug: str,
     }
     json_data = {
         'data': {
-            "type": "entry",
+            'type': 'entry',
             alias_field_slug: alias,
             address_field_slug: address,
             longitude_field_slug: longitude,
