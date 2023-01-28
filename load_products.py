@@ -4,7 +4,7 @@ import re
 from environs import Env
 from transliterate import translit
 
-from helpers import get_json
+from file_helpers import get_json
 from moltin_helpers import (create_main_image_relationship, download_image,
                             download_product, get_moltin_access_token)
 
