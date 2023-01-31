@@ -10,6 +10,7 @@ from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
 from format_message import create_cart_description, create_product_description
+from geo_helpers import fetch_coordinates
 from log_helpers import TelegramLogsHandler
 from moltin_helpers import (add_product_to_cart, create_customer,
                             delete_product_from_cart, get_all_products,
@@ -124,7 +125,7 @@ def handle_cart(bot, update):
     return 'HANDLE_CART'
 
 
-def handle_email(bot, update):
+def handle_waiting_email(bot, update):
     user = update.effective_user
     name = f"{user.first_name} id:{user.id}"
     email = update.message.text
@@ -135,9 +136,27 @@ def handle_email(bot, update):
         message = 'Произошла ошибка, возможно вы прислали несуществующий email. Попробуйте повторить попытку:'
         bot.send_message(text=message, chat_id=update.message.chat_id)
         return 'HANDLE_WAITING_EMAIL'
-    message = f'Вы прислали мне эту эл. почту: {email}'
+    message = f'Вы прислали нам эту эл. почту: {email}.\n\nТеперь пришлите нам Ваш адрес текстом или геолокацию:'
     bot.send_message(text=message, chat_id=update.message.chat_id)
-    return 'HANDLE_WAITING_EMAIL'
+    return 'HANDLE_WAITING_ADDRESS'
+
+
+def handle_waiting_address(bot, update):
+    address = update.message.text
+    if address:
+        coordinates = fetch_coordinates(yandex_api_key, address)
+        if coordinates:
+            bot.send_message(text=coordinates, chat_id=update.message.chat_id)
+            return 'HANDLE_WAITING_ADDRESS'
+        bot.send_message(text='Вы прислали некорректный адрес, повторите попытку:', chat_id=update.message.chat_id)
+        return 'HANDLE_WAITING_ADDRESS'
+    if update.edited_message:
+        message = update.edited_message
+    else:
+        message = update.message
+    current_pos = (message.location.latitude, message.location.longitude)
+    bot.send_message(text=current_pos, chat_id=update.message.chat_id)
+    return 'HANDLE_WAITING_ADDRESS'
 
 
 def handle_users_reply(bot, update):
@@ -160,7 +179,8 @@ def handle_users_reply(bot, update):
         'HANDLE_MENU': handle_menu,
         'HANDLE_DESCRIPTION': handle_description,
         'HANDLE_CART': handle_cart,
-        'HANDLE_WAITING_EMAIL': handle_email,
+        'HANDLE_WAITING_EMAIL': handle_waiting_email,
+        'HANDLE_WAITING_ADDRESS': handle_waiting_address,
     }
     state_handler = states_functions[user_state]
     try:
@@ -188,6 +208,7 @@ if __name__ == '__main__':
     moltin_client_id = env('MOLTIN_CLIENT_ID')
     moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
     tg_chat_id = env('TG_CHAT_ID')
+    yandex_api_key = env('YANDEX_API_KEY')
     tg_bot = telegram.Bot(token=tg_token)
     logger.setLevel(logging.INFO)
     logger.addHandler(TelegramLogsHandler(tg_bot, tg_chat_id))
@@ -203,6 +224,8 @@ if __name__ == '__main__':
             dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
             dispatcher.add_handler(CommandHandler('start', handle_users_reply))
             updater.dispatcher.add_handler(CallbackQueryHandler(handle_menu))
+            handle_location = MessageHandler(Filters.location, handle_waiting_address)
+            dispatcher.add_handler(handle_location)
             updater.start_polling()
             logger.info('TG бот запущен')
             updater.idle()
