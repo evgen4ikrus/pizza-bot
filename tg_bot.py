@@ -4,13 +4,14 @@ import os
 import redis
 import telegram
 from environs import Env
+from geopy import distance
 from requests.exceptions import HTTPError
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
 from format_message import create_cart_description, create_product_description
-from geo_helpers import fetch_coordinates
+from geo_helpers import fetch_coordinates, get_nearest_pizzeria
 from log_helpers import TelegramLogsHandler
 from moltin_helpers import (add_product_to_cart, create_customer,
                             delete_product_from_cart, get_all_products,
@@ -144,18 +145,27 @@ def handle_waiting_email(bot, update):
 def handle_waiting_address(bot, update):
     address = update.message.text
     if address:
-        coordinates = fetch_coordinates(yandex_api_key, address)
-        if coordinates:
-            bot.send_message(text=coordinates, chat_id=update.message.chat_id)
+        current_coordinates = fetch_coordinates(yandex_api_key, address)
+        if not current_coordinates:
+            bot.send_message(text='Некорректный адрес, повторите попытку:', chat_id=update.message.chat_id)
             return 'HANDLE_WAITING_ADDRESS'
-        bot.send_message(text='Вы прислали некорректный адрес, повторите попытку:', chat_id=update.message.chat_id)
-        return 'HANDLE_WAITING_ADDRESS'
-    if update.edited_message:
-        message = update.edited_message
     else:
-        message = update.message
-    current_pos = (message.location.latitude, message.location.longitude)
-    bot.send_message(text=current_pos, chat_id=update.message.chat_id)
+        if update.edited_message:
+            message = update.edited_message
+        else:
+            message = update.message
+        current_coordinates = (message.location.latitude, message.location.longitude)
+    nearest_pizzeria = get_nearest_pizzeria(current_coordinates, moltin_client_id, moltin_client_secret, flow_slug)
+    pizzeria_distance = distance.distance((nearest_pizzeria.get('latitude'), nearest_pizzeria.get('longitude')), current_coordinates)
+    if pizzeria_distance <= 0.5:
+        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим бесплатно'
+    elif pizzeria_distance <= 5:
+        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим за 100 рублей'
+    elif pizzeria_distance <= 20:
+        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим за 300 рублей'
+    else:
+        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}. К сожалению, мы не можем доставить по вашему адресу'
+    bot.send_message(text=message, chat_id=update.message.chat_id)
     return 'HANDLE_WAITING_ADDRESS'
 
 
@@ -209,6 +219,7 @@ if __name__ == '__main__':
     moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
     tg_chat_id = env('TG_CHAT_ID')
     yandex_api_key = env('YANDEX_API_KEY')
+    flow_slug = env('FLOW_SLUG', 'pizzeria')
     tg_bot = telegram.Bot(token=tg_token)
     logger.setLevel(logging.INFO)
     logger.addHandler(TelegramLogsHandler(tg_bot, tg_chat_id))

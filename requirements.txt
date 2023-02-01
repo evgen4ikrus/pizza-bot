@@ -3,3 +3,4 @@ environs==9.5.0
 transliterate==1.10.2
 python-telegram-bot==11.1.0
 redis==4.3.4
+geopy==2.3.0

@@ -301,3 +301,12 @@ def create_customer(moltin_access_token, name, email):
     response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=payload)
     response.raise_for_status()
     return response.json()
+
+
+def get_all_pizzerias(moltin_access_token, flow_slug):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
