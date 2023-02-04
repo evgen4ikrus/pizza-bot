@@ -11,12 +11,13 @@ from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
                           MessageHandler, Updater)
 
 from format_message import create_cart_description, create_product_description
-from geo_helpers import fetch_coordinates, get_nearest_pizzeria
+from geo_helpers import fetch_coordinates, get_nearest_place
 from log_helpers import TelegramLogsHandler
 from moltin_helpers import (add_product_to_cart, create_customer,
-                            delete_product_from_cart, get_all_products,
-                            get_cart_items, get_image_by_id,
-                            get_moltin_access_token, get_product_by_id)
+                            create_customer_address, delete_product_from_cart,
+                            get_all_products, get_cart_items, get_entry,
+                            get_image_by_id, get_moltin_access_token,
+                            get_product_by_id)
 
 _database = None
 logger = logging.getLogger('tg_bot')
@@ -145,28 +146,75 @@ def handle_waiting_email(bot, update):
 def handle_waiting_address(bot, update):
     address = update.message.text
     if address:
-        current_coordinates = fetch_coordinates(yandex_api_key, address)
-        if not current_coordinates:
+        customer_coordinates = fetch_coordinates(yandex_api_key, address)
+        if not customer_coordinates:
             bot.send_message(text='Некорректный адрес, повторите попытку:', chat_id=update.message.chat_id)
             return 'HANDLE_WAITING_ADDRESS'
     else:
         if update.edited_message:
-            message = update.edited_message
+            message = update.edited_messageadd
         else:
             message = update.message
-        current_coordinates = (message.location.latitude, message.location.longitude)
-    nearest_pizzeria = get_nearest_pizzeria(current_coordinates, moltin_client_id, moltin_client_secret, flow_slug)
-    pizzeria_distance = distance.distance((nearest_pizzeria.get('latitude'), nearest_pizzeria.get('longitude')), current_coordinates)
+        customer_coordinates = (message.location.latitude, message.location.longitude)
+    nearest_pizzeria = get_nearest_place(customer_coordinates, moltin_client_id, moltin_client_secret, 'pizzeria')
+    raw_pizzeria_distance = distance.distance((nearest_pizzeria.get('latitude'), nearest_pizzeria.get('longitude')), customer_coordinates)
+    pizzeria_distance = round(float((str(raw_pizzeria_distance)).split()[0]), 1)
+    nearest_pizzeria_address = nearest_pizzeria["address"]
+    pizzeria_id = nearest_pizzeria['id']
+    courier_chat_id = nearest_pizzeria['courier_id']
     if pizzeria_distance <= 0.5:
-        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим бесплатно'
+        delivery_price = 'бесплатно'
     elif pizzeria_distance <= 5:
-        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим за 100 рублей'
+        delivery_price = 'за 100 рублей'
     elif pizzeria_distance <= 20:
-        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}, или доставим за 300 рублей'
+        delivery_price = 'за 300 рублей'
     else:
-        message = f'Вы можете забрать заказ по адресу: {nearest_pizzeria["address"]}. К сожалению, мы не можем доставить по вашему адресу'
-    bot.send_message(text=message, chat_id=update.message.chat_id)
-    return 'HANDLE_WAITING_ADDRESS'
+        message = f'Вы можете, забрать пиццу из нашей пиццерии. Она находится в {pizzeria_distance} км. от вас! Вот её адрес: {nearest_pizzeria_address}.'
+        bot.send_message(text=message, chat_id=update.message.chat_id)
+        return 'HANDLE_WAITING_ADDRESS'
+    customer_latitude, customer_longitude = customer_coordinates[0], customer_coordinates[1]
+    customer_chat_id = update.message.chat_id
+    keyboard = [
+        [InlineKeyboardButton('Доставка', callback_data=f'Доставка;{courier_chat_id},{customer_chat_id},{customer_latitude},{customer_longitude}')],
+        [InlineKeyboardButton('Самовывоз', callback_data=f'Самовывоз;{pizzeria_id}')]
+    ]
+    message = f'Может, заберете пиццу из нашей пиццерии неподалеку? Она всего в {pizzeria_distance} км. от вас! Вот её адрес: {nearest_pizzeria_address}.\n\nА можем и доставить {delivery_price}, нам не сложно:'
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.send_message(text=message, chat_id=update.message.chat_id, reply_markup=reply_markup)
+    return 'HANDLE_WAITING_DELIVERY'
+
+
+def handle_waiting_delivery(bot, update):
+    query = update.callback_query
+    command, delivery = query.data.split(';')
+    if command == 'В меню':
+        keyboard = get_menu_keyboard()
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message = 'Главное меню:'
+        bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
+        return 'HANDLE_MENU'
+    moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
+    if command == 'Самовывоз':
+        pizzeria_id = delivery
+        pizzeria = get_entry(moltin_access_token, 'pizzeria', pizzeria_id)
+        pizzeria_address = pizzeria['address']
+        message = f'Ближайшая пиццерия находится по адресу: {pizzeria_address}. Ждем Вас!'
+        keyboard = [
+            [InlineKeyboardButton('В меню', callback_data='В меню;')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
+        return 'HANDLE_WAITING_DELIVERY'
+    if command == 'Доставка':
+        courier_chat_id, customer_chat_id, customer_latitude, customer_longitude = delivery.split(',')
+        cart_items = get_cart_items(moltin_access_token, customer_chat_id)
+        message = create_cart_description(cart_items)
+        create_customer_address(moltin_access_token, 'customer_address',
+                                'latitude', float(customer_latitude),
+                                'longitude', float(customer_longitude))
+        bot.send_message(text=message, chat_id=courier_chat_id)
+        bot.send_location(courier_chat_id, latitude=customer_latitude, longitude=customer_longitude)
+        return 'HANDLE_WAITING_ADDRESS'
 
 
 def handle_users_reply(bot, update):
@@ -191,6 +239,7 @@ def handle_users_reply(bot, update):
         'HANDLE_CART': handle_cart,
         'HANDLE_WAITING_EMAIL': handle_waiting_email,
         'HANDLE_WAITING_ADDRESS': handle_waiting_address,
+        'HANDLE_WAITING_DELIVERY': handle_waiting_delivery,
     }
     state_handler = states_functions[user_state]
     try:
@@ -219,7 +268,6 @@ if __name__ == '__main__':
     moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
     tg_chat_id = env('TG_CHAT_ID')
     yandex_api_key = env('YANDEX_API_KEY')
-    flow_slug = env('FLOW_SLUG', 'pizzeria')
     tg_bot = telegram.Bot(token=tg_token)
     logger.setLevel(logging.INFO)
     logger.addHandler(TelegramLogsHandler(tg_bot, tg_chat_id))
