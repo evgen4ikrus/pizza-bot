@@ -51,7 +51,7 @@ def main():
     env = Env()
     env.read_env()
     products_path = env('PRODUCTS_PATH', 'products.json')
-    pizzerias_path = env('ADDRESSES_FILE', 'pizzerias.json')
+    pizzerias_path = env('PIZZERIAS_PATH', 'pizzerias.json')
     moltin_client_id = env('MOLTIN_CLIENT_ID')
     moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
