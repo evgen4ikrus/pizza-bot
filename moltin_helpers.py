@@ -195,11 +195,11 @@ def get_all_flow_fields(moltin_access_token, flow_slug):
 
 
 def create_pizzeria(moltin_access_token: str, flow_slug: str,
-                 alias_field_slug: str, alias: str,
-                 address_field_slug: str, address: str,
-                 longitude_field_slug: str, longitude: float,
-                 latitude_field_slug: str, latitude: float,
-                 courier_id_slug: str, courier_id: str):
+                    alias_field_slug: str, alias: str,
+                    address_field_slug: str, address: str,
+                    longitude_field_slug: str, longitude: float,
+                    latitude_field_slug: str, latitude: float,
+                    courier_id_slug: str, courier_id: str):
     headers = {
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
@@ -324,13 +324,13 @@ def create_customer(moltin_access_token, name, email):
     return response.json()
 
 
-def get_all_entries(moltin_access_token, flow_slug):
-    headers = {
-        'Authorization': f'Bearer {moltin_access_token}',
-    }
-    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers)
-    response.raise_for_status()
-    return response.json()['data']
+# def get_all_entries(moltin_access_token, flow_slug):
+#     headers = {
+#         'Authorization': f'Bearer {moltin_access_token}',
+#     }
+#     response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers)
+#     response.raise_for_status()
+#     return response.json()['data']
 
 
 def get_entry(moltin_access_token, flow_slug, entry_id):

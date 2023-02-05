@@ -6,11 +6,12 @@ import telegram
 from environs import Env
 from geopy import distance
 from requests.exceptions import HTTPError
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
-                          MessageHandler, Updater, PreCheckoutQueryHandler)
+                          MessageHandler, PreCheckoutQueryHandler, Updater)
 
-from format_message import create_cart_description, create_product_description, get_total_price
+from format_message import (create_cart_description,
+                            create_product_description, get_total_price)
 from geo_helpers import fetch_coordinates, get_nearest_place
 from log_helpers import TelegramLogsHandler
 from moltin_helpers import (add_product_to_cart, create_customer,
@@ -21,7 +22,7 @@ from moltin_helpers import (add_product_to_cart, create_customer,
 
 _database = None
 logger = logging.getLogger('tg_bot')
-from telegram import LabeledPrice
+
 
 def get_menu_keyboard():
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
@@ -157,8 +158,8 @@ def handle_waiting_address(bot, update):
             message = update.message
         customer_coordinates = (message.location.latitude, message.location.longitude)
     nearest_pizzeria = get_nearest_place(customer_coordinates, moltin_client_id, moltin_client_secret, 'pizzeria')
-    raw_pizzeria_distance = distance.distance((nearest_pizzeria.get('latitude'),\
-                                               nearest_pizzeria.get('longitude')), customer_coordinates)
+    raw_pizzeria_distance = distance.distance((nearest_pizzeria.get('latitude'), nearest_pizzeria.get('longitude')),
+                                              customer_coordinates)
     pizzeria_distance = round(float((str(raw_pizzeria_distance)).split()[0]), 1)
     nearest_pizzeria_address = nearest_pizzeria["address"]
     pizzeria_id = nearest_pizzeria['id']
@@ -170,8 +171,10 @@ def handle_waiting_address(bot, update):
     elif pizzeria_distance <= 20:
         delivery_price = 'за 300 рублей'
     else:
-        message = f'Вы можете, забрать пиццу из нашей пиццерии.' \
-                  f'Она находится в {pizzeria_distance} км. от вас! Вот её адрес: {nearest_pizzeria_address}.'
+        message = f'К сожалению, мы не можем доставить на этот адрес, он очень далеко от нас.\n' \
+                  f'Но Вы можете, забрать пиццу из нашей пиццерии. ' \
+                  f'Она находится в {pizzeria_distance} км. от вас! Вот её адрес: {nearest_pizzeria_address}.\n' \
+                  f'Или введите другой адрес доставки:'
         bot.send_message(text=message, chat_id=update.message.chat_id)
         return 'HANDLE_WAITING_ADDRESS'
     customer_latitude, customer_longitude = customer_coordinates[0], customer_coordinates[1]
@@ -183,10 +186,10 @@ def handle_waiting_address(bot, update):
         )],
         [InlineKeyboardButton('Самовывоз', callback_data=f'Самовывоз;{pizzeria_id}')]
     ]
-    message = f'Может, заберете пиццу из нашей пиццерии неподалеку?' \
-              f' Она всего в {pizzeria_distance} км. от вас!' \
-              f' Вот её адрес: {nearest_pizzeria_address}.' \
-              f'\nА можем и доставить {delivery_price}, нам не сложно:'
+    message = f'Может, заберете пиццу из нашей пиццерии неподалеку? ' \
+              f'Она всего в {pizzeria_distance} км. от вас! ' \
+              f'Вот её адрес: {nearest_pizzeria_address}.\n' \
+              f'А можем и доставить {delivery_price}, нам не сложно:'
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(text=message, chat_id=update.message.chat_id, reply_markup=reply_markup)
     return 'HANDLE_WAITING_DELIVERY'
@@ -325,7 +328,8 @@ if __name__ == '__main__':
             updater.dispatcher.add_handler(CallbackQueryHandler(handle_menu))
             handle_location = MessageHandler(Filters.location, handle_waiting_address)
             dispatcher.add_handler(handle_location)
-            dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback, pass_job_queue=True))
+            dispatcher.add_handler(
+                MessageHandler(Filters.successful_payment, successful_payment_callback, pass_job_queue=True))
             dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
             updater.start_polling()
             logger.info('TG бот запущен')
