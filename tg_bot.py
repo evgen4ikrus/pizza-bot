@@ -24,13 +24,24 @@ _database = None
 logger = logging.getLogger('tg_bot')
 
 
-def get_menu_keyboard():
+def get_menu_keyboard(query):
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
     products = get_all_products(moltin_access_token)
+    products_per_page = 8
+    page = 0
+    if query:
+        if 'page' in query.data:
+            page = int(query.data.replace('page-', ''))
     keyboard = [
         [InlineKeyboardButton(product.get('name'), callback_data=product.get('id'))]
-        for product in products
+        for product in products[page * products_per_page:(page + 1) * products_per_page]
     ]
+    pagination_buttons = []
+    if page > 0:
+        pagination_buttons.append(InlineKeyboardButton('⬅️ Предыдущие', callback_data=f'page-{page - 1}'))
+    if len(products) > (page + 1) * products_per_page:
+        pagination_buttons.append(InlineKeyboardButton('Следующие ➡️', callback_data=f'page-{page + 1}'))
+    keyboard.append(pagination_buttons)
     keyboard.append([InlineKeyboardButton('Корзина', callback_data='Корзина')])
     return keyboard
 
@@ -40,21 +51,27 @@ def get_cart_keyboard(cart_items):
         [InlineKeyboardButton(f"Убрать из корзины {item.get('name')}", callback_data=item.get('id'))]
         for item in cart_items
     ]
-    keyboard.insert(0, [InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
+    keyboard.insert(0, [InlineKeyboardButton('Оформить заказ', callback_data='Оформить заказ')])
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Меню')])
     return keyboard
 
 
 def start(bot, update):
-    keyboard = get_menu_keyboard()
+    query = update.callback_query
+    keyboard = get_menu_keyboard(query)
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(text='Главное меню:', reply_markup=reply_markup)
+    update.message.reply_text(text='Меню пицц:', reply_markup=reply_markup)
     return 'HANDLE_MENU'
 
 
 def handle_menu(bot, update):
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
     query = update.callback_query
+    if 'page' in query.data:
+        keyboard = get_menu_keyboard(query)
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.send_message(text='Меню пицц:', chat_id=query.message.chat_id, reply_markup=reply_markup)
+        return 'HANDLE_MENU'
     if query.data == 'Корзина':
         cart_items = get_cart_items(moltin_access_token, query.message.chat_id)
         message = create_cart_description(cart_items)
@@ -86,9 +103,9 @@ def handle_description(bot, update):
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
     query = update.callback_query
     if query.data == 'Назад':
-        keyboard = get_menu_keyboard()
+        keyboard = get_menu_keyboard(query)
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message = 'Главное меню:'
+        message = 'Меню пицц:'
         bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
         bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         return 'HANDLE_MENU'
@@ -109,12 +126,12 @@ def handle_cart(bot, update):
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
     query = update.callback_query
     if query.data == 'Меню':
-        keyboard = get_menu_keyboard()
+        keyboard = get_menu_keyboard(query)
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message = 'Главное меню:'
+        message = 'Меню пицц:'
         bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
         return 'HANDLE_MENU'
-    if query.data == 'Оплатить':
+    if query.data == 'Оформить заказ':
         message = 'Пожалуйста введите Вашу электронную почту:'
         bot.send_message(text=message, chat_id=query.message.chat_id)
         return 'HANDLE_WAITING_EMAIL'
@@ -199,9 +216,9 @@ def handle_waiting_delivery(bot, update):
     query = update.callback_query
     command, about_delivery = query.data.split(';')
     if command == 'В меню':
-        keyboard = get_menu_keyboard()
+        keyboard = get_menu_keyboard(query)
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message = 'Главное меню:'
+        message = 'Меню пицц:'
         bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
         return 'HANDLE_MENU'
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
