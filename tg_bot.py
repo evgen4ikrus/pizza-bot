@@ -145,8 +145,12 @@ def handle_cart(bot, update):
         return 'HANDLE_WAITING_EMAIL'
     delete_product_from_cart(moltin_access_token, query.message.chat_id, query.data)
     cart_items = get_cart_items(moltin_access_token, query.message.chat_id)
-    message = create_cart_description(cart_items)
-    keyboard = get_cart_keyboard(cart_items)
+    if cart_items:
+        message = create_cart_description(cart_items)
+        keyboard = get_cart_keyboard(cart_items)
+    else:
+        message = 'Ваша корзина пуста'
+        keyboard = [[InlineKeyboardButton('В меню', callback_data='Меню')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.answer("Товар удален из корзину")
     bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
