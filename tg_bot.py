@@ -74,8 +74,12 @@ def handle_menu(bot, update):
         return 'HANDLE_MENU'
     if query.data == 'Корзина':
         cart_items = get_cart_items(moltin_access_token, query.message.chat_id)
-        message = create_cart_description(cart_items)
-        keyboard = get_cart_keyboard(cart_items)
+        if cart_items:
+            message = create_cart_description(cart_items)
+            keyboard = get_cart_keyboard(cart_items)
+        else:
+            message = 'Ваша корзина пуста'
+            keyboard = [[InlineKeyboardButton('В меню', callback_data='Меню')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
         return 'HANDLE_CART'
@@ -111,8 +115,12 @@ def handle_description(bot, update):
         return 'HANDLE_MENU'
     if query.data == 'Корзина':
         cart_items = get_cart_items(moltin_access_token, query.message.chat_id)
-        message = create_cart_description(cart_items)
-        keyboard = get_cart_keyboard(cart_items)
+        if cart_items:
+            message = create_cart_description(cart_items)
+            keyboard = get_cart_keyboard(cart_items)
+        else:
+            message = 'Ваша корзина пуста'
+            keyboard = [[InlineKeyboardButton('В меню', callback_data='Меню')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=reply_markup)
         return 'HANDLE_CART'
