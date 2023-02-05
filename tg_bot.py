@@ -235,8 +235,15 @@ def handle_waiting_delivery(bot, update):
         return 'HANDLE_USERS_REPLY'
 
 
-def successful_payment_callback(bot, update):
+def callback_alarm(bot, job):
+    message = 'Приятного аппетита! *место для рекламы* \n\n' \
+              '*сообщение что делать если пицца не пришла*'
+    bot.send_message(chat_id=job.context, text=message)
+
+
+def successful_payment_callback(bot, update, job_queue):
     update.message.reply_text("Оплата успешно выполнена! Спасибо!")
+    job_queue.run_once(callback_alarm, 3600, context=update.message.chat_id)
 
 
 def precheckout_callback(bot, update):
@@ -318,7 +325,7 @@ if __name__ == '__main__':
             updater.dispatcher.add_handler(CallbackQueryHandler(handle_menu))
             handle_location = MessageHandler(Filters.location, handle_waiting_address)
             dispatcher.add_handler(handle_location)
-            dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
+            dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback, pass_job_queue=True))
             dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
             updater.start_polling()
             logger.info('TG бот запущен')
