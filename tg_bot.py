@@ -262,8 +262,8 @@ def handle_waiting_delivery(bot, update):
         currency = "RUB"
         price = get_total_price(cart_items)
         prices = [LabeledPrice("Test", price * 100)]
-        bot.sendInvoice(chat_id, title, description, payload,
-                        provider_token, start_parameter, currency, prices)
+        bot.send_invoice(chat_id, title, description, payload,
+                         provider_token, start_parameter, currency, prices)
         return 'HANDLE_USERS_REPLY'
 
 
