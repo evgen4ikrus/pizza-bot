@@ -278,6 +278,7 @@ def add_product_to_cart(moltin_access_token, product_id, cart_id, quantity=1):
         }
     }
     response = requests.post(url=f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers, json=payload)
+    response.raise_for_status()
     return response.json()
 
 
@@ -296,6 +297,7 @@ def get_product_by_id(moltin_access_token, product_id):
         'Authorization': f'Bearer {moltin_access_token}',
     }
     response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
+    response.raise_for_status()
     return response.json()['data']
 
 
