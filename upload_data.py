@@ -1,14 +1,21 @@
+import json
 import os
 import re
 
 from environs import Env
 from transliterate import translit
 
-from file_helpers import get_json
 from moltin_helpers import (create_flow, create_flow_field,
                             create_main_image_relationship, create_pizzeria,
                             download_image, download_product,
                             get_moltin_access_token)
+
+
+def get_file_contents(path):
+    with open(path, 'r', encoding='UTF-8') as file:
+        file_contents = file.read()
+    contents = json.loads(file_contents)
+    return contents
 
 
 def upload_products(moltin_access_token, raw_products):
@@ -56,8 +63,8 @@ def main():
     moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
     moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
 
-    products = get_json(os.path.join(products_path))
-    pizzerias = get_json(os.path.join(pizzerias_path))
+    products = get_file_contents(os.path.join(products_path))
+    pizzerias = get_file_contents(os.path.join(pizzerias_path))
 
     upload_products(moltin_access_token, products)
     create_pizzeria_flow(moltin_access_token)
