@@ -66,7 +66,30 @@ def send_message(recipient_id, message_text):
 def send_menu(recipient_id):
     moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
     products = get_all_products(moltin_access_token)[1:6]
-    menu_products = []
+    menu_products = [
+        {
+            'title': 'Меню',
+            'subtitle': 'Здесь вы можете выбрать один из вариантов',
+            'image_url': 'https://cdn1.vectorstock.com/i/1000x1000/21/30/big-pizza-logo-vector-31052130.jpg',
+            'buttons': [
+                {
+                    'type': 'postback',
+                    'title': 'Корзина',
+                    'payload': 'Корзина',
+                },
+                {
+                    'type': 'postback',
+                    'title': 'Акции',
+                    'payload': 'Акции',
+                },
+                {
+                    'type': 'postback',
+                    'title': 'Сделать заказ',
+                    'payload': 'Сделать заказ',
+                },
+            ],
+        }
+    ]
     for product in products:
         image = get_image_by_id(moltin_access_token,
                                 product.get('relationships').get('main_image').get('data').get('id'))
@@ -79,7 +102,7 @@ def send_menu(recipient_id):
                 {
                     'type': 'postback',
                     'title': 'Добавить в корзину',
-                    'payload': 'какие-то данные',
+                    'payload': product.get('id'),
                 },
             ],
         }
