@@ -333,3 +333,94 @@ def get_entry(moltin_access_token, flow_slug, entry_id):
     response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries/{entry_id}', headers=headers)
     response.raise_for_status()
     return response.json()['data']
+
+
+def create_category(moltin_access_token, name, slug, status='live'):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+        'Content-Type': 'application/json',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'category',
+            'name': name,
+            'slug': slug,
+            'status': status,
+        },
+    }
+
+    response = requests.post('https://api.moltin.com/v2/categories', headers=headers, json=json_data)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def add_category_product(moltin_access_token, category_id, product_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'data': [
+            {
+                'type': 'category',
+                'id': category_id,
+            },
+        ],
+    }
+    response = requests.post(
+        f'https://api.moltin.com/v2/products/{product_id}/relationships/categories',
+        headers=headers,
+        json=json_data,
+    )
+    response.raise_for_status()
+
+
+def get_category_by_id(moltin_access_token, category_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/categories/{category_id}', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def get_products_by_category_id(moltin_access_token, category_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    params = {
+        'filter': f'eq(category.id,{category_id})'
+    }
+    response = requests.get('https://api.moltin.com/v2/products', params=params, headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def get_all_categories(moltin_access_token):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.get('https://api.moltin.com/v2/categories', headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def get_category_by_slug(moltin_access_token, category_slug):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    params = {
+        'filter': f'eq(slug,{category_slug})'
+    }
+    response = requests.get('https://api.moltin.com/v2/categories', params=params, headers=headers)
+    response.raise_for_status()
+    return response.json()['data']
+
+
+def delete_category(moltin_access_token, category_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_access_token}',
+    }
+    response = requests.delete(f'https://api.moltin.com/v2/categories/{category_id}', headers=headers)
+    response.raise_for_status()
