@@ -300,7 +300,7 @@ def handle_users_reply(bot, update):
     if user_reply == '/start':
         user_state = 'START'
     else:
-        user_state = db.get(chat_id).decode('utf-8')
+        user_state = db.get(f'telegram_id_{chat_id}').decode('utf-8')
 
     states_functions = {
         'START': start,
@@ -315,7 +315,7 @@ def handle_users_reply(bot, update):
     state_handler = states_functions[user_state]
     try:
         next_state = state_handler(bot, update)
-        db.set(chat_id, next_state)
+        db.set(f'telegram_id_{chat_id}', next_state)
     except Exception:
         logger.exception('Произошла ошибка:')
 
