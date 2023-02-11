@@ -42,9 +42,12 @@ def webhook():
             for messaging_event in entry["messaging"]:
                 if messaging_event.get("message"):
                     sender_id = messaging_event["sender"]["id"]
-                    recipient_id = messaging_event["recipient"]["id"]
                     message_text = messaging_event["message"]["text"]
-                    handle_users_reply(sender_id, message_text)
+                    handle_users_reply(sender_id, message_text=message_text)
+                elif messaging_event.get("postback"):
+                    sender_id = messaging_event["sender"]["id"]
+                    payload = messaging_event["postback"]["payload"]
+                    handle_users_reply(sender_id, payload=payload)
     return "ok", 200
 
 
@@ -58,10 +61,10 @@ def get_database_connection():
     return _database
 
 
-def handle_users_reply(sender_id, message_text):
+def handle_users_reply(sender_id, message_text=None, payload=None):
     db = get_database_connection()
     states_functions = {
-        'START': send_menu,
+        'START': handle_menu,
     }
     recorded_state = db.get(f'facebook_id_{sender_id}')
     if not recorded_state or recorded_state.decode("utf-8") not in states_functions.keys():
@@ -71,8 +74,53 @@ def handle_users_reply(sender_id, message_text):
     if message_text == "/start":
         user_state = "START"
     state_handler = states_functions[user_state]
-    next_state = state_handler(sender_id, message_text)
+    next_state = state_handler(sender_id, message_text, payload)
     db.set(f'facebook_id_{sender_id}', next_state)
+
+
+def handle_menu(recipient_id, message_text, category_id):
+    moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
+    menu_main_element = get_menu_main_element()
+    menu_elements = [menu_main_element, ]
+    if category_id:
+        pizzas = get_products_by_category_id(moltin_access_token, category_id)
+    else:
+        front_page_category = get_category_by_slug(moltin_access_token, 'main')[0]
+        category_id = front_page_category.get('id')
+        pizzas = get_products_by_category_id(moltin_access_token,
+                                             front_page_category.get('id'))
+    for pizza in pizzas:
+        product_element = get_product_element(pizza, moltin_access_token)
+        menu_elements.append(product_element)
+
+    categories = get_all_categories(moltin_access_token)
+    categories_element = get_categories_element(categories, category_id)
+    menu_elements.append(categories_element)
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'recipient': {
+            'id': recipient_id,
+        },
+        'message': {
+            'attachment': {
+                'type': 'template',
+                'payload': {
+                    'template_type': 'generic',
+                    'elements': menu_elements,
+                },
+            },
+        },
+    }
+    response = requests.post(
+        f'https://graph.facebook.com/v2.6/me/messages?access_token={FACEBOOK_TOKEN}',
+        headers=headers,
+        json=json_data,
+    )
+    response.raise_for_status()
+    return 'START'
 
 
 def get_menu_main_element():
@@ -119,10 +167,10 @@ def get_product_element(product, moltin_access_token):
     return product_element
 
 
-def get_categories_element(categories):
+def get_categories_element(categories, category_id):
     category_buttons = []
     for category in categories:
-        if category.get('slug') == 'main':
+        if category.get('id') == category_id:
             continue
         category_button = {
             'type': 'postback',
@@ -139,46 +187,5 @@ def get_categories_element(categories):
     return categories_element
 
 
-def send_menu(recipient_id, message_text):
-    moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
-    menu_main_element = get_menu_main_element()
-    menu_elements = [menu_main_element, ]
-
-    front_page_category = get_category_by_slug(moltin_access_token, 'main')
-    front_page_pizzas = get_products_by_category_id(moltin_access_token,
-                                                    front_page_category[0].get('id'))
-    for pizza in front_page_pizzas:
-        product_element = get_product_element(pizza, moltin_access_token)
-        menu_elements.append(product_element)
-
-    categories = get_all_categories(moltin_access_token)
-    categories_element = get_categories_element(categories)
-    menu_elements.append(categories_element)
-
-    headers = {
-        'Content-Type': 'application/json',
-    }
-    json_data = {
-        'recipient': {
-            'id': recipient_id,
-        },
-        'message': {
-            'attachment': {
-                'type': 'template',
-                'payload': {
-                    'template_type': 'generic',
-                    'elements': menu_elements,
-                },
-            },
-        },
-    }
-    response = requests.post(
-        f'https://graph.facebook.com/v2.6/me/messages?access_token={FACEBOOK_TOKEN}',
-        headers=headers,
-        json=json_data,
-    )
-    response.raise_for_status()
-    return 'START'
-
-    if __name__ == '__main__':
-        app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
