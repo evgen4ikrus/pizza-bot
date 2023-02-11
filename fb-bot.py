@@ -90,7 +90,7 @@ def handle_menu(recipient_id, message_text, payload):
             product_id = some_id
             add_product_to_cart(moltin_access_token, product_id, recipient_id)
             pizza = get_product_by_id(moltin_access_token, product_id)
-            message = f'В корзину добавлена пицца {pizza.get("name")}'
+            message = f'В корзину добавлена пицца - {pizza.get("name")}'
             send_message(recipient_id, message)
             return 'START'
         elif button_name == 'Корзина':
@@ -156,9 +156,15 @@ def handle_cart(recipient_id, message_text, payload):
             delete_product_from_cart(moltin_access_token, recipient_id, product_id)
             message = f'Пицца удалена из корзины'
             send_message(recipient_id, message)
+        elif button_name == 'Добавить ещё одну':
+            product_id = some_id
+            add_product_to_cart(moltin_access_token, product_id, recipient_id)
+            pizza_name = get_product_by_id(moltin_access_token, product_id).get('name')
+            message = f'В корзину добавлен еще одина пицца - {pizza_name}'
+            send_message(recipient_id, message)
     cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
+    cart_cards = [get_cart_main_card(cart_pizzas), ]
     if cart_pizzas:
-        cart_cards = [get_cart_main_card(cart_pizzas), ]
         for pizza in cart_pizzas:
             product_card = get_product_cart_card(pizza)
             cart_cards.append(product_card)
@@ -197,6 +203,11 @@ def get_product_cart_card(product):
         'buttons': [
             {
                 'type': 'postback',
+                'title': 'Добавить ещё одну',
+                'payload': f'Добавить ещё одну;{product.get("product_id")}',
+            },
+            {
+                'type': 'postback',
                 'title': 'Убрать из корзины',
                 'payload': f'Убрать из корзины;{product.get("id")}',
             },
@@ -205,11 +216,15 @@ def get_product_cart_card(product):
     return product_card
 
 
-def get_cart_main_card(cart_items):
-    order_price = get_total_price(cart_items)
+def get_cart_main_card(cart_pizzas):
+    if cart_pizzas:
+        order_price = get_total_price(cart_pizzas)
+        subtitle = f'Ваш заказ на сумму {order_price} р.'
+    else:
+        subtitle = 'Ваша корзина пуста'
     menu_cart_card = {
-        'title': 'Ваша корзина',
-        'subtitle': f'Ваш заказ на сумму {order_price} р.',
+        'title': 'Корзина',
+        'subtitle': subtitle,
         'image_url': 'https://img.freepik.com/premium-vector/shopping-trolley-full-of-food-fruit-products-grocery-goods-grocery-shopping-cart_625536-441.jpg',
         'buttons': [
             {
