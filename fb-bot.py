@@ -145,13 +145,18 @@ def handle_menu(recipient_id, message_text, payload):
 
 def handle_cart(recipient_id, message_text, payload):
     moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
-    cart_items = get_cart_items(moltin_access_token, recipient_id)
+    cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
     if payload:
         button_name, something = payload.split(';')
         if button_name == 'В меню':
             handle_menu(recipient_id, message_text, payload)
             return 'START'
-    cart_cards = [get_cart_main_card(cart_items), ]
+
+    cart_cards = [get_cart_main_card(cart_pizzas), ]
+    for pizza in cart_pizzas:
+        product_card = get_product_cart_card(pizza)
+        cart_cards.append(product_card)
+
     headers = {
         'Content-Type': 'application/json',
     }
@@ -176,6 +181,22 @@ def handle_cart(recipient_id, message_text, payload):
     )
     response.raise_for_status()
     return 'CART'
+
+
+def get_product_cart_card(product):
+    product_card = {
+        'title': f'{product.get("name")} {product.get("quantity")} шт. за {product.get("value").get("amount")} р.',
+        'subtitle': product.get('description'),
+        'image_url': product.get('image').get('href'),
+        'buttons': [
+            {
+                'type': 'postback',
+                'title': 'Убрать из корзины',
+                'payload': f'Убрать из корзины;{product.get("id")}',
+            },
+        ],
+    }
+    return product_card
 
 
 def get_cart_main_card(cart_items):
