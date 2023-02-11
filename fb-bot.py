@@ -6,10 +6,11 @@ from environs import Env
 from flask import Flask, request
 
 from format_message import get_total_price
-from moltin_helpers import (add_product_to_cart, get_all_categories,
-                            get_cart_items, get_category_by_slug,
-                            get_image_by_id, get_moltin_access_token,
-                            get_product_by_id, get_products_by_category_id)
+from moltin_helpers import (add_product_to_cart, delete_product_from_cart,
+                            get_all_categories, get_cart_items,
+                            get_category_by_slug, get_image_by_id,
+                            get_moltin_access_token, get_product_by_id,
+                            get_products_by_category_id)
 
 app = Flask(__name__)
 _database = None
@@ -145,17 +146,22 @@ def handle_menu(recipient_id, message_text, payload):
 
 def handle_cart(recipient_id, message_text, payload):
     moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
-    cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
     if payload:
-        button_name, something = payload.split(';')
+        button_name, some_id = payload.split(';')
         if button_name == 'В меню':
             handle_menu(recipient_id, message_text, payload)
             return 'START'
-
-    cart_cards = [get_cart_main_card(cart_pizzas), ]
-    for pizza in cart_pizzas:
-        product_card = get_product_cart_card(pizza)
-        cart_cards.append(product_card)
+        elif button_name == 'Убрать из корзины':
+            product_id = some_id
+            delete_product_from_cart(moltin_access_token, recipient_id, product_id)
+            message = f'Пицца удалена из корзины'
+            send_message(recipient_id, message)
+    cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
+    if cart_pizzas:
+        cart_cards = [get_cart_main_card(cart_pizzas), ]
+        for pizza in cart_pizzas:
+            product_card = get_product_cart_card(pizza)
+            cart_cards.append(product_card)
 
     headers = {
         'Content-Type': 'application/json',
