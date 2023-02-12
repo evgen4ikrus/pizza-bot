@@ -14,7 +14,7 @@ app = Flask(__name__)
 _database = None
 env = Env()
 env.read_env()
-FACEBOOK_TOKEN = env("PAGE_ACCESS_TOKEN")
+FACEBOOK_TOKEN = env('PAGE_ACCESS_TOKEN')
 MOLTIN_CLIENT_ID = env('MOLTIN_CLIENT_ID')
 MOLTIN_CLIENT_SECRET = env('MOLTIN_CLIENT_SECRET')
 
@@ -24,12 +24,12 @@ def verify():
     """
     При верификации вебхука у Facebook он отправит запрос на этот адрес. На него нужно ответить VERIFY_TOKEN.
     """
-    if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.challenge"):
-        if not request.args.get("hub.verify_token") == env("VERIFY_TOKEN"):
-            return "Verification token mismatch", 403
-        return request.args["hub.challenge"], 200
+    if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.challenge'):
+        if not request.args.get('hub.verify_token') == env('VERIFY_TOKEN'):
+            return 'Verification token mismatch', 403
+        return request.args['hub.challenge'], 200
 
-    return "Hello world", 200
+    return 'Hello world', 200
 
 
 @app.route('/', methods=['POST'])
@@ -38,24 +38,24 @@ def webhook():
     Основной вебхук, на который будут приходить сообщения от Facebook.
     """
     data = request.get_json()
-    if data["object"] == "page":
-        for entry in data["entry"]:
-            for messaging_event in entry["messaging"]:
-                if messaging_event.get("message"):
-                    sender_id = messaging_event["sender"]["id"]
-                    message_text = messaging_event["message"]["text"]
+    if data['object'] == 'page':
+        for entry in data['entry']:
+            for messaging_event in entry['messaging']:
+                if messaging_event.get('message'):
+                    sender_id = messaging_event['sender']['id']
+                    message_text = messaging_event['message']['text']
                     handle_users_reply(sender_id, message_text=message_text)
-                elif messaging_event.get("postback"):
-                    sender_id = messaging_event["sender"]["id"]
-                    payload = messaging_event["postback"]["payload"]
+                elif messaging_event.get('postback'):
+                    sender_id = messaging_event['sender']['id']
+                    payload = messaging_event['postback']['payload']
                     handle_users_reply(sender_id, payload=payload)
-    return "ok", 200
+    return 'ok', 200
 
 
 def handle_users_reply(sender_id, message_text=None, payload=None):
     db = get_database_connection()
-    if message_text == "/start":
-        user_state = "START"
+    if message_text == '/start':
+        user_state = 'START'
     else:
         user_state = db.get(f'facebook_id_{sender_id}')
     states_functions = {
@@ -152,7 +152,7 @@ def handle_cart(recipient_id, message_text, payload, db):
             product_id = some_id
             add_product_to_cart(moltin_access_token, product_id, recipient_id)
             pizza_name = get_product_by_id(moltin_access_token, product_id).get('name')
-            message = f'В корзину добавлен еще одина пицца - {pizza_name}'
+            message = f'В корзину добавлен еще одна пицца - {pizza_name}'
             send_message(recipient_id, message)
     cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
     cart_cards = [get_cart_main_card(cart_pizzas), ]
@@ -302,18 +302,18 @@ def get_categories_card(categories, category_id):
 
 
 def send_message(recipient_id, message_text):
-    params = {"access_token": FACEBOOK_TOKEN}
-    headers = {"Content-Type": "application/json"}
+    params = {'access_token': FACEBOOK_TOKEN}
+    headers = {'Content-Type': 'application/json'}
     request_content = {
-        "recipient": {
-            "id": recipient_id
+        'recipient': {
+            'id': recipient_id
         },
-        "message": {
-            "text": message_text
+        'message': {
+            'text': message_text
         }
     }
     response = requests.post(
-        "https://graph.facebook.com/v2.6/me/messages",
+        'https://graph.facebook.com/v2.6/me/messages',
         params=params, headers=headers, json=request_content
     )
     response.raise_for_status()
