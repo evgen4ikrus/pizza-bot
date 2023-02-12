@@ -1,16 +1,14 @@
-import os
+import json
 
-import redis
 import requests
 from environs import Env
 from flask import Flask, request
 
 from format_message import get_total_price
 from moltin_helpers import (add_product_to_cart, delete_product_from_cart,
-                            get_all_categories, get_cart_items,
-                            get_category_by_slug, get_image_by_id,
-                            get_moltin_access_token, get_product_by_id,
-                            get_products_by_category_id)
+                            get_cart_items, get_moltin_access_token,
+                            get_product_by_id)
+from redis_tools import get_database_connection
 
 app = Flask(__name__)
 _database = None
@@ -54,39 +52,35 @@ def webhook():
     return "ok", 200
 
 
-def get_database_connection():
-    global _database
-    if _database is None:
-        database_password = os.getenv('DATABASE_PASSWORD')
-        database_host = os.getenv('DATABASE_HOST')
-        database_port = os.getenv('DATABASE_PORT')
-        _database = redis.Redis(host=database_host, port=int(database_port), password=database_password)
-    return _database
-
-
 def handle_users_reply(sender_id, message_text=None, payload=None):
     db = get_database_connection()
     if message_text == "/start":
         user_state = "START"
     else:
-        user_state = db.get(f'facebook_id_{sender_id}').decode('utf-8')
+        user_state = db.get(f'facebook_id_{sender_id}')
     states_functions = {
         'START': handle_menu,
         'CART': handle_cart,
     }
     state_handler = states_functions[user_state]
-    next_state = state_handler(sender_id, message_text, payload)
+    next_state = state_handler(sender_id, message_text, payload, db)
     db.set(f'facebook_id_{sender_id}', next_state)
 
 
-def handle_menu(recipient_id, message_text, payload):
-    moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
+def handle_menu(recipient_id, message_text, payload, db):
     if payload:
         button_name, some_id = payload.split(';')
         if button_name == 'Категория':
+            categories = json.loads(db.get('categories'))
             category_id = some_id
-            pizzas = get_products_by_category_id(moltin_access_token, category_id)
+            current_category = None
+            for category in categories:
+                if category.get('id') == category_id:
+                    current_category = category
+                    break
+            pizzas = current_category.get('products')
         elif button_name == 'Добавить в корзину':
+            moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
             product_id = some_id
             add_product_to_cart(moltin_access_token, product_id, recipient_id)
             pizza = get_product_by_id(moltin_access_token, product_id)
@@ -94,27 +88,25 @@ def handle_menu(recipient_id, message_text, payload):
             send_message(recipient_id, message)
             return 'START'
         elif button_name == 'Корзина':
-            handle_cart(recipient_id, message_text, payload)
+            handle_cart(recipient_id, message_text, payload, db)
             return 'CART'
         else:
-            front_page_category = get_category_by_slug(moltin_access_token, 'main')[0]
+            front_page_category = json.loads(db.get('menu'))
             category_id = front_page_category.get('id')
-            pizzas = get_products_by_category_id(moltin_access_token,
-                                                 front_page_category.get('id'))
+            pizzas = front_page_category.get('products')
     else:
-        front_page_category = get_category_by_slug(moltin_access_token, 'main')[0]
+        front_page_category = json.loads(db.get('menu'))
         category_id = front_page_category.get('id')
-        pizzas = get_products_by_category_id(moltin_access_token,
-                                             front_page_category.get('id'))
+        pizzas = front_page_category.get('products')
 
     menu_main_card = get_menu_main_card()
     menu_cards = [menu_main_card, ]
 
     for pizza in pizzas:
-        product_card = get_product_card(pizza, moltin_access_token)
+        product_card = get_product_card(pizza)
         menu_cards.append(product_card)
 
-    categories = get_all_categories(moltin_access_token)
+    categories = json.loads(db.get('categories'))
     categories_card = get_categories_card(categories, category_id)
     menu_cards.append(categories_card)
 
@@ -144,12 +136,12 @@ def handle_menu(recipient_id, message_text, payload):
     return 'START'
 
 
-def handle_cart(recipient_id, message_text, payload):
+def handle_cart(recipient_id, message_text, payload, db):
     moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
     if payload:
         button_name, some_id = payload.split(';')
         if button_name == 'В меню':
-            handle_menu(recipient_id, message_text, payload)
+            handle_menu(recipient_id, message_text, payload, db)
             return 'START'
         elif button_name == 'Убрать из корзины':
             product_id = some_id
@@ -273,13 +265,11 @@ def get_menu_main_card():
     return menu_main_card
 
 
-def get_product_card(product, moltin_access_token):
-    image = get_image_by_id(moltin_access_token,
-                            product.get('relationships').get('main_image').get('data').get('id'))
+def get_product_card(product):
     product_card = {
-        'title': f'{product.get("name")} ({product.get("price")[0].get("amount")} р.) ',
+        'title': f'{product.get("name")} ({product.get("price")[0].get("amount")} р.)',
         'subtitle': product.get('description'),
-        'image_url': image.get('link').get('href'),
+        'image_url': product.get('image_link'),
         'buttons': [
             {
                 'type': 'postback',
