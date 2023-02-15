@@ -1,13 +1,26 @@
 import json
+import os
+from pprint import pprint
 
+import redis
 from environs import Env
 
 from moltin_helpers import (get_all_categories, get_category_by_slug,
                             get_image_by_id, get_moltin_access_token,
                             get_products_by_category_id)
-from redis_tools import get_database_connection
 
 _database = None
+
+
+def get_database_connection():
+    global _database
+    if _database is None:
+        database_password = os.getenv('DATABASE_PASSWORD')
+        database_host = os.getenv('DATABASE_HOST')
+        database_port = os.getenv('DATABASE_PORT')
+        _database = redis.Redis(host=database_host, port=int(database_port),
+                                password=database_password, decode_responses=True)
+    return _database
 
 
 def get_menu(front_page_category_slug='main'):

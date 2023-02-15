@@ -1,5 +1,7 @@
 import json
+import os
 
+import redis
 import requests
 from environs import Env
 from flask import Flask, request
@@ -8,7 +10,6 @@ from format_message import get_total_price
 from moltin_helpers import (add_product_to_cart, delete_product_from_cart,
                             get_cart_items, get_moltin_access_token,
                             get_product_by_id)
-from redis_tools import get_database_connection
 
 app = Flask(__name__)
 _database = None
@@ -52,9 +53,20 @@ def webhook():
     return 'ok', 200
 
 
+def get_database_connection():
+    global _database
+    if _database is None:
+        database_password = os.getenv('DATABASE_PASSWORD')
+        database_host = os.getenv('DATABASE_HOST')
+        database_port = os.getenv('DATABASE_PORT')
+        _database = redis.Redis(host=database_host, port=int(database_port),
+                                password=database_password, decode_responses=True)
+    return _database
+
+
 def handle_users_reply(sender_id, message_text=None, payload=None):
     db = get_database_connection()
-    if message_text == '/start':
+    if message_text:
         user_state = 'START'
     else:
         user_state = db.get(f'facebook_id_{sender_id}')
