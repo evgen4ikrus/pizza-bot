@@ -153,3 +153,4 @@ cython_debug/
 pizzerias.json
 products.json
 delete_data.py
+test.py
