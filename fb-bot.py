@@ -13,11 +13,6 @@ from moltin_helpers import (add_product_to_cart, delete_product_from_cart,
 
 app = Flask(__name__)
 _database = None
-env = Env()
-env.read_env()
-FACEBOOK_TOKEN = env('PAGE_ACCESS_TOKEN')
-MOLTIN_CLIENT_ID = env('MOLTIN_CLIENT_ID')
-MOLTIN_CLIENT_SECRET = env('MOLTIN_CLIENT_SECRET')
 
 
 @app.route('/', methods=['GET'])
@@ -26,7 +21,7 @@ def verify():
     При верификации вебхука у Facebook он отправит запрос на этот адрес. На него нужно ответить VERIFY_TOKEN.
     """
     if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.challenge'):
-        if not request.args.get('hub.verify_token') == env('VERIFY_TOKEN'):
+        if not request.args.get('hub.verify_token') == os.getenv('VERIFY_TOKEN'):
             return 'Verification token mismatch', 403
         return request.args['hub.challenge'], 200
 
@@ -65,6 +60,12 @@ def get_database_connection():
 
 
 def handle_users_reply(sender_id, message_text=None, payload=None):
+    env = Env()
+    env.read_env()
+    moltin_client_id = env('MOLTIN_CLIENT_ID')
+    moltin_client_secret = env('MOLTIN_CLIENT_SECRET')
+    moltin_access_token = get_moltin_access_token(moltin_client_id, moltin_client_secret)
+    facebook_token = env('PAGE_ACCESS_TOKEN')
     db = get_database_connection()
     if message_text:
         user_state = 'START'
@@ -75,11 +76,11 @@ def handle_users_reply(sender_id, message_text=None, payload=None):
         'CART': handle_cart,
     }
     state_handler = states_functions[user_state]
-    next_state = state_handler(sender_id, message_text, payload, db)
+    next_state = state_handler(sender_id, message_text, payload, db, moltin_access_token, facebook_token)
     db.set(f'facebook_id_{sender_id}', next_state)
 
 
-def handle_menu(recipient_id, message_text, payload, db):
+def handle_menu(recipient_id, message_text, payload, db, moltin_access_token, facebook_token):
     if payload:
         button_name, some_id = payload.split(';')
         if button_name == 'Категория':
@@ -92,15 +93,14 @@ def handle_menu(recipient_id, message_text, payload, db):
                     break
             pizzas = current_category.get('products')
         elif button_name == 'Добавить в корзину':
-            moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
             product_id = some_id
             add_product_to_cart(moltin_access_token, product_id, recipient_id)
             pizza = get_product_by_id(moltin_access_token, product_id)
             message = f'В корзину добавлена пицца - {pizza.get("name")}'
-            send_message(recipient_id, message)
+            send_message(recipient_id, message, facebook_token)
             return 'START'
         elif button_name == 'Корзина':
-            handle_cart(recipient_id, message_text, payload, db)
+            handle_cart(recipient_id, message_text, payload, db, moltin_access_token, facebook_token)
             return 'CART'
         else:
             front_page_category = json.loads(db.get('menu'))
@@ -125,7 +125,7 @@ def handle_menu(recipient_id, message_text, payload, db):
     headers = {
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'recipient': {
             'id': recipient_id,
         },
@@ -140,32 +140,31 @@ def handle_menu(recipient_id, message_text, payload, db):
         },
     }
     response = requests.post(
-        f'https://graph.facebook.com/v2.6/me/messages?access_token={FACEBOOK_TOKEN}',
+        f'https://graph.facebook.com/v2.6/me/messages?access_token={facebook_token}',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
     return 'START'
 
 
-def handle_cart(recipient_id, message_text, payload, db):
-    moltin_access_token = get_moltin_access_token(MOLTIN_CLIENT_ID, MOLTIN_CLIENT_SECRET)
+def handle_cart(recipient_id, message_text, payload, db, moltin_access_token, facebook_token):
     if payload:
         button_name, some_id = payload.split(';')
         if button_name == 'В меню':
-            handle_menu(recipient_id, message_text, payload, db)
+            handle_menu(recipient_id, message_text, payload, db, moltin_access_token, facebook_token)
             return 'START'
         elif button_name == 'Убрать из корзины':
             product_id = some_id
             delete_product_from_cart(moltin_access_token, recipient_id, product_id)
             message = f'Пицца удалена из корзины'
-            send_message(recipient_id, message)
+            send_message(recipient_id, message, facebook_token)
         elif button_name == 'Добавить ещё одну':
             product_id = some_id
             add_product_to_cart(moltin_access_token, product_id, recipient_id)
             pizza_name = get_product_by_id(moltin_access_token, product_id).get('name')
             message = f'В корзину добавлен еще одна пицца - {pizza_name}'
-            send_message(recipient_id, message)
+            send_message(recipient_id, message, facebook_token)
     cart_pizzas = get_cart_items(moltin_access_token, recipient_id)
     cart_cards = [get_cart_main_card(cart_pizzas), ]
     if cart_pizzas:
@@ -176,7 +175,7 @@ def handle_cart(recipient_id, message_text, payload, db):
     headers = {
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'recipient': {
             'id': recipient_id,
         },
@@ -191,9 +190,9 @@ def handle_cart(recipient_id, message_text, payload, db):
         },
     }
     response = requests.post(
-        f'https://graph.facebook.com/v2.6/me/messages?access_token={FACEBOOK_TOKEN}',
+        f'https://graph.facebook.com/v2.6/me/messages?access_token={facebook_token}',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
     return 'CART'
@@ -313,8 +312,8 @@ def get_categories_card(categories, category_id):
     return categories_card
 
 
-def send_message(recipient_id, message_text):
-    params = {'access_token': FACEBOOK_TOKEN}
+def send_message(recipient_id, message_text, facebook_token):
+    params = {'access_token': facebook_token}
     headers = {'Content-Type': 'application/json'}
     request_content = {
         'recipient': {

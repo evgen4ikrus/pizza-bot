@@ -115,7 +115,7 @@ def create_main_image_relationship(moltin_access_token, product_id, image_id):
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': {
             'type': 'main_image',
             'id': image_id,
@@ -124,7 +124,7 @@ def create_main_image_relationship(moltin_access_token, product_id, image_id):
     response = requests.post(
         f'https://api.moltin.com/v2/products/{product_id}/relationships/main-image',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
 
@@ -134,7 +134,7 @@ def create_flow(moltin_access_token, flow_name, slug, description):
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': {
             'type': 'flow',
             'name': flow_name,
@@ -143,7 +143,7 @@ def create_flow(moltin_access_token, flow_name, slug, description):
             'enabled': True,
         },
     }
-    response = requests.post('https://api.moltin.com/v2/flows', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/flows', headers=headers, json=payload)
     response.raise_for_status()
     return response.json()['data']
 
@@ -162,7 +162,7 @@ def create_flow_field(moltin_access_token, flow_id, name, slug, field_type, desc
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': {
             'type': 'field',
             'name': name,
@@ -181,7 +181,7 @@ def create_flow_field(moltin_access_token, flow_id, name, slug, field_type, desc
             },
         },
     }
-    response = requests.post('https://api.moltin.com/v2/fields', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/fields', headers=headers, json=payload)
     response.raise_for_status()
 
 
@@ -204,7 +204,7 @@ def create_pizzeria(moltin_access_token: str, flow_slug: str,
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': {
             'type': 'entry',
             alias_field_slug: alias,
@@ -214,7 +214,7 @@ def create_pizzeria(moltin_access_token: str, flow_slug: str,
             courier_id_slug: courier_id,
         },
     }
-    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers, json=json_data)
+    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers, json=payload)
     response.raise_for_status()
     return response.json()
 
@@ -226,14 +226,14 @@ def create_customer_address(moltin_access_token: str, flow_slug: str,
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': {
             'type': 'entry',
             longitude_field_slug: longitude,
             latitude_field_slug: latitude,
         },
     }
-    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers, json=json_data)
+    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers, json=payload)
     response.raise_for_status()
     return response.json()
 
@@ -341,7 +341,7 @@ def create_category(moltin_access_token, name, slug, status='live'):
         'Content-Type': 'application/json',
     }
 
-    json_data = {
+    payload = {
         'data': {
             'type': 'category',
             'name': name,
@@ -350,7 +350,7 @@ def create_category(moltin_access_token, name, slug, status='live'):
         },
     }
 
-    response = requests.post('https://api.moltin.com/v2/categories', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/categories', headers=headers, json=payload)
     response.raise_for_status()
     return response.json()['data']
 
@@ -360,7 +360,7 @@ def add_category_product(moltin_access_token, category_id, product_id):
         'Authorization': f'Bearer {moltin_access_token}',
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'data': [
             {
                 'type': 'category',
@@ -371,7 +371,7 @@ def add_category_product(moltin_access_token, category_id, product_id):
     response = requests.post(
         f'https://api.moltin.com/v2/products/{product_id}/relationships/categories',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
 
