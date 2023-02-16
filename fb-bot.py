@@ -125,7 +125,7 @@ def handle_menu(recipient_id, message_text, payload, db, moltin_access_token, fa
     headers = {
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'recipient': {
             'id': recipient_id,
         },
@@ -142,7 +142,7 @@ def handle_menu(recipient_id, message_text, payload, db, moltin_access_token, fa
     response = requests.post(
         f'https://graph.facebook.com/v2.6/me/messages?access_token={facebook_token}',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
     return 'START'
@@ -175,7 +175,7 @@ def handle_cart(recipient_id, message_text, payload, db, moltin_access_token, fa
     headers = {
         'Content-Type': 'application/json',
     }
-    json_data = {
+    payload = {
         'recipient': {
             'id': recipient_id,
         },
@@ -192,7 +192,7 @@ def handle_cart(recipient_id, message_text, payload, db, moltin_access_token, fa
     response = requests.post(
         f'https://graph.facebook.com/v2.6/me/messages?access_token={facebook_token}',
         headers=headers,
-        json=json_data,
+        json=payload,
     )
     response.raise_for_status()
     return 'CART'
